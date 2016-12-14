@@ -25,7 +25,7 @@ def main():
                 colNames.index('Language')] == 'English')]
 
     for line in dataEng:
-        ## Index of column named Text (add 1, b/c OrigIndex added as 1st col)
+        ## Index of column named Text
         textCol = colNames.index('Text')
 
         ## Tweet text
