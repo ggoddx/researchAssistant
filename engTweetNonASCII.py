@@ -16,7 +16,6 @@ def main():
     ## List of non-ASCII characters
     nonASCII = [['OrigIndex', 'Text', 'non-ASCII', 'TextLen', 'non-ASCIIlen',
                  '%non-ASCII']]
-#    nonASCII = [['non-ASCII']]
 
     dataCSV = np.array(dataCSV[1:])
     dataCSV = np.insert(dataCSV, 0, np.arange(dataCSV.shape[0]) + 1, axis = 1)
@@ -43,7 +42,6 @@ def main():
 
         nonASCII.append([line[0], tweet, nonASCIIchars, twLen, numNonASCII,
                          numNonASCII/ float(twLen)])
-#        nonASCII.append([re.sub('[ -~]', '', line[textCol])])
 
     ## File to write processed data
     processedCSV = csv.writer(open('engTweetNonASCII.csv',
