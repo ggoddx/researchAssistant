@@ -4,6 +4,8 @@ import csv, getSysArgs, re
 
 
 def main():
+    print 'Usage Note:\nIf there are formulas on the sheet you would like to convert to CSV, save a new xlsx file of the sheet with the formulas changed to their values.'
+
     ## CSV file of Tweets and data
     [fName, sheetname] = getSysArgs.usage(['xlsx2csv.py', '<XLSX_file_path>',
                                 '<sheetname_to_convert>'])[1:]
