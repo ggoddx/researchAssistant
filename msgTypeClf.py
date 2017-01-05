@@ -1,5 +1,5 @@
 from sklearn import svm
-from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.metrics import confusion_matrix, f1_score, precision_score, recall_score
 from sklearn.model_selection import StratifiedKFold
 
@@ -9,6 +9,9 @@ import numpy as np
 
 def main():
     np.random.seed(0)
+
+    ## Number of folds for cross-validation
+    N_FOLDS = 5
 
     ## Training data for classification, observation column name, and label
     #  column name
@@ -50,7 +53,8 @@ def main():
     labels = train[:, colNames.index(lblCol)]
 
     ## Text vectorizer
-    txt2vect = CountVectorizer()
+#    txt2vect = CountVectorizer(max_df = 0.99, min_df = 0.01)
+    txt2vect = TfidfVectorizer(max_df = 0.99, min_df = 0.01)
 
     ## Training features
     feats = txt2vect.fit_transform(tweetTxt)
@@ -59,10 +63,19 @@ def main():
     clf = svm.SVC()
 
     ## 5-fold stratified cross-validation
-    skf5 = StratifiedKFold(n_splits = 5, shuffle = True)
+    skf5 = StratifiedKFold(n_splits = N_FOLDS, shuffle = True)
 
     ## Data split into folds
     folds = skf5.split(feats, labels)
+
+    ## F1-scores from cross-validation
+    cvF1 = []
+
+    ## Confusion matricies from cross-validation
+    cvCM = []
+
+    ## Counter for fold iterations
+    fold = 1
 
     for trainIndices, testIndices in folds:
         clf.fit(feats[trainIndices], labels[trainIndices])
@@ -73,12 +86,26 @@ def main():
         ## Predicted labels
         predLabels = clf.predict(feats[testIndices])
 
-        print confusion_matrix(trueLabels, predLabels, labels = [
-                'Achievement', 'Address', 'Appeal', 'Confrontation',
-                'Endorsement', 'Generic', 'Regards', 'Update'])
-        print f1_score(trueLabels, predLabels, average = 'micro')
-        print precision_score(trueLabels, predLabels, average = 'micro')
-        print recall_score(trueLabels, predLabels, average = 'micro')
+        cvF1.append(f1_score(trueLabels, predLabels, average = 'micro'))
+
+        cvCM.append(confusion_matrix(trueLabels, predLabels, labels = [
+                    'Achievement', 'Address', 'Appeal', 'Confrontation',
+                    'Endorsement', 'Generic', 'Regards', 'Update']))
+
+        print 'Fold', fold, 'of', N_FOLDS, 'complete'
+        fold += 1
+
+    cvF1 = np.array(cvF1)
+    print cvF1
+    print 'mean: ', np.mean(cvF1)
+    print 'min: ', np.min(cvF1)
+    print 'median: ', np.median(cvF1)
+    print 'max: ', np.max(cvF1)
+    print 'mean confusion matrix'
+    print np.mean(np.array(cvCM), axis = 0)
+
+    for cm in cvCM:
+        print cm
 
     return
 
