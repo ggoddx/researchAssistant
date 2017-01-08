@@ -1,6 +1,6 @@
 from sklearn import svm
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
-from sklearn.metrics import confusion_matrix, f1_score, precision_score, recall_score
+from sklearn.metrics import confusion_matrix, f1_score
 from sklearn.model_selection import StratifiedKFold
 
 import csv, getSysArgs
@@ -8,8 +8,6 @@ import numpy as np
 
 
 def main():
-    np.random.seed(0)
-
     ## Number of folds for cross-validation
     N_FOLDS = 5
 
@@ -27,6 +25,17 @@ def main():
     colNames = train[0]
 
     train = np.array(train[1:])
+
+    ## Open random sequence file (courtesy of random.org)
+    seqFile = open('trainRandSeq.txt', 'rU')
+
+    ## List form of permutation in file
+    permu = []
+
+    for line in seqFile:
+        permu.append(int(line.strip()))
+
+    train = train[permu]
 
     ## Tweet text before removing html entities
     tweetTxtTemp = train[:, colNames.index(obsCol)]
@@ -53,17 +62,17 @@ def main():
     labels = train[:, colNames.index(lblCol)]
 
     ## Text vectorizer
-#    txt2vect = CountVectorizer(max_df = 0.99, min_df = 0.01)
-    txt2vect = TfidfVectorizer(max_df = 0.99, min_df = 0.01)
+    txt2vect = CountVectorizer(max_df = 0.99, min_df = 0.01)
+#    txt2vect = TfidfVectorizer(max_df = 0.99, min_df = 0.01)
 
     ## Training features
     feats = txt2vect.fit_transform(tweetTxt)
 
     ## Support vector machines classifier
-    clf = svm.SVC()
+    clf = svm.SVC(kernel = 'linear')
 
     ## 5-fold stratified cross-validation
-    skf5 = StratifiedKFold(n_splits = N_FOLDS, shuffle = True)
+    skf5 = StratifiedKFold(n_splits = N_FOLDS)
 
     ## Data split into folds
     folds = skf5.split(feats, labels)
