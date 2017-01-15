@@ -13,7 +13,7 @@ def main():
 
     ## Training data for classification, observation column name, and label
     #  column name
-    [fName, obsCol, lblCol] = getSysArgs.usage(['msgTypeClf.py',
+    [fName, obsCol, lblCol] = getSysArgs.usage(['msgTypeClf_xval.py',
                                                 '<train_data_filepath>',
                                                 '<observation_column_name>',
                                                 '<label_column_name>'])[1:]
@@ -62,14 +62,17 @@ def main():
     labels = train[:, colNames.index(lblCol)]
 
     ## Text vectorizer
-    txt2vect = CountVectorizer(max_df = 0.99, min_df = 0.01)
-#    txt2vect = TfidfVectorizer(max_df = 0.99, min_df = 0.01)
+#    txt2vect = CountVectorizer(binary = True, max_df = 0.99, min_df = 0.01)
+    txt2vect = TfidfVectorizer()#max_df = 0.99, min_df = 0.01)
 
     ## Training features
     feats = txt2vect.fit_transform(tweetTxt)
 
     ## Support vector machines classifier
-    clf = svm.SVC(kernel = 'linear')
+    clf = svm.SVC(class_weight = {'Achievement': 1, 'Address': 1, 'Appeal': 1,
+                                  'Confrontation': 1, 'Endorsement': 1,
+                                  'Generic': 1, 'Regards': 1, 'Update': 1},
+                  kernel = 'linear')
 
     ## 5-fold stratified cross-validation
     skf5 = StratifiedKFold(n_splits = N_FOLDS)
