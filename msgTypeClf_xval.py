@@ -1,3 +1,4 @@
+from prepClfData import ClfData
 from sklearn import svm
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.metrics import confusion_matrix, f1_score
@@ -11,62 +12,20 @@ def main():
     ## Number of folds for cross-validation
     N_FOLDS = 5
 
-    ## Training data for classification, observation column name, and label
-    #  column name
-    [fName, obsCol, lblCol] = getSysArgs.usage(['msgTypeClf_xval.py',
-                                                '<train_data_filepath>',
-                                                '<observation_column_name>',
-                                                '<label_column_name>'])[1:]
+    ## Training data for classification
+    train = ClfData(getSysArgs.usage(['msgTypeClf_xval.py',
+                                      '<train_data_filepath>',
+                                      '<observation_column_name>',
+                                      '<label_column_name>'])[1:])
 
-    ## Open training data CSV file
-    train = list(csv.reader(open(fName, 'rU')))
-
-    ## Column names from training data table
-    colNames = train[0]
-
-    train = np.array(train[1:])
-
-    ## Open random sequence file (courtesy of random.org)
-    seqFile = open('trainRandSeq.txt', 'rU')
-
-    ## List form of permutation in file
-    permu = []
-
-    for line in seqFile:
-        permu.append(int(line.strip()))
-
-    train = train[permu]
-
-    ## Tweet text before removing html entities
-    tweetTxtTemp = train[:, colNames.index(obsCol)]
-
-    ## Range of tweet text indicies
-    twTxtRange = range(tweetTxtTemp.shape[0])
-
-    ## Tweet text
-    tweetTxt = []
-
-    for tweet in tweetTxtTemp:
-        ## Tweet cleaned of html entities
-        cleanTweet = tweet.replace('&amp;', '&')
-
-        cleanTweet = cleanTweet.replace('&gt;', '>')
-
-        tweetTxt.append(cleanTweet)
-
-    tweetTxt = np.array(tweetTxt)
-
-    del tweetTxtTemp
-
-    ## Labels
-    labels = train[:, colNames.index(lblCol)]
+    train.randomize()
 
     ## Text vectorizer
 #    txt2vect = CountVectorizer(binary = True, max_df = 0.99, min_df = 0.01)
     txt2vect = TfidfVectorizer()#max_df = 0.99, min_df = 0.01)
 
     ## Training features
-    feats = txt2vect.fit_transform(tweetTxt)
+    feats = txt2vect.fit_transform(train.tweetTxt)
 
     ## Support vector machines classifier
     clf = svm.SVC(class_weight = {'Achievement': 1, 'Address': 1, 'Appeal': 1,
@@ -78,7 +37,7 @@ def main():
     skf5 = StratifiedKFold(n_splits = N_FOLDS)
 
     ## Data split into folds
-    folds = skf5.split(feats, labels)
+    folds = skf5.split(feats, train.labels)
 
     ## F1-scores from cross-validation
     cvF1 = []
@@ -90,10 +49,10 @@ def main():
     fold = 1
 
     for trainIndices, testIndices in folds:
-        clf.fit(feats[trainIndices], labels[trainIndices])
+        clf.fit(feats[trainIndices], train.labels[trainIndices])
 
         ## True labels
-        trueLabels = labels[testIndices]
+        trueLabels = train.labels[testIndices]
 
         ## Predicted labels
         predLabels = clf.predict(feats[testIndices])
