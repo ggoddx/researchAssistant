@@ -1,4 +1,5 @@
 from sklearn.metrics import confusion_matrix, f1_score
+from sklearn.metrics import precision_recall_fscore_support as prfs
 from sklearn.model_selection import StratifiedKFold
 
 import numpy as np
@@ -23,11 +24,18 @@ def printCV(n_folds, feats, labels, clf):
     ## Data split into folds
     folds = skf5.split(feats, labels)
 
+    ## List of labels
+    lbls = ['Achievement', 'Address', 'Appeal', 'Confrontation', 'Endorsement',
+            'Generic', 'Regards', 'Update']
+
     ## F1-scores from cross-validation
     cvF1 = []
 
     ## Confusion matricies from cross-validation
     cvCM = []
+
+    ## Label-level results from cross-validation
+    cvLblRes = []
 
     ## Counter for fold iterations
     fold = 1
@@ -43,9 +51,10 @@ def printCV(n_folds, feats, labels, clf):
 
         cvF1.append(f1_score(trueLabels, predLabels, average = 'micro'))
 
-        cvCM.append(confusion_matrix(trueLabels, predLabels, labels = [
-                    'Achievement', 'Address', 'Appeal', 'Confrontation',
-                    'Endorsement', 'Generic', 'Regards', 'Update']))
+        cvCM.append(confusion_matrix(trueLabels, predLabels, labels = lbls))
+
+        cvLblRes.append(np.transpose(np.array(prfs(trueLabels, predLabels,
+                                                   labels = lbls))))
 
         print 'Fold', fold, 'of', n_folds, 'complete'
         fold += 1
@@ -58,6 +67,8 @@ def printCV(n_folds, feats, labels, clf):
     print 'max: ', np.max(cvF1)
     print 'mean confusion matrix'
     print np.mean(np.array(cvCM), axis = 0)
+    print 'mean label-level statistics'
+    print np.mean(np.array(cvLblRes), axis = 0)
 
     for cm in cvCM:
         print cm
