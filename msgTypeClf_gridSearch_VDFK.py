@@ -63,7 +63,9 @@ def main():
                     ## Support vector machines classifier
                     clf = svm.SVC(kernel = kern)
 
-                    results.printCV(N_FOLDS, feats, train.labels, clf)
+                    results.printCV(N_FOLDS, feats, train.labels, clf,
+                                    gridResults = gridResults, gridParams = [
+                            vectzr, maxDF, minDF, kern])
 
     print np.array(gridResults)
 
