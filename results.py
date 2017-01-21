@@ -6,6 +6,7 @@ import numpy as np
 
 
 ## Runs cross-validation of classification model and prints results
+#
 #  @param n_folds int
 #   number of folds for cross validation
 #
@@ -17,7 +18,16 @@ import numpy as np
 #
 #  @param clf sci-kit learn classifier object
 #   classification model
-def printCV(n_folds, feats, labels, clf):
+#
+#  @param gridResults list
+#   list of results from grid search
+#   (for use with prininting results during a grid search)
+#
+#  @param gridParams list
+#   parameters involved in the point of the grid search
+#   (for use with prininting results during a grid search)
+def printCV(n_folds, feats, labels, clf, gridResults = None,
+            gridParams = None):
     ## 5-fold stratified cross-validation
     skf5 = StratifiedKFold(n_splits = n_folds)
 
@@ -58,6 +68,9 @@ def printCV(n_folds, feats, labels, clf):
 
         print 'Fold', fold, 'of', n_folds, 'complete'
         fold += 1
+
+    if gridResults is not None:
+        gridResults.append(gridParams + cvF1)
 
     cvF1 = np.array(cvF1)
     print cvF1
