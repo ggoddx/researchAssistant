@@ -1,8 +1,10 @@
 from keras.layers import Activation, Dense, Dropout
 from keras.models import Sequential
 from prepClfData import ClfData
-from sklearn.metrics import confusion_matrix
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics import confusion_matrix, f1_score
+from sklearn.metrics import precision_recall_fscore_support as prfs
+from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import LabelBinarizer
 
 import csv, getSysArgs
@@ -34,35 +36,82 @@ def main():
     ## Training labels (as binarized matrix)
     labels = lb.fit_transform(train.labels)
 
-    ## Multi-layer perceptron classifier
-    clf = Sequential()
+    ## 5-fold stratified cross-validation
+    skf5 = StratifiedKFold(n_splits = N_FOLDS)
 
-    clf.add(Dense(512, input_shape = (feats.shape[1],)))
-    clf.add(Activation('relu'))
-    clf.add(Dropout(0.5))
-    clf.add(Dense(labels.shape[1]))
-    clf.add(Activation('softmax'))
+    ## Data split into folds
+    folds = skf5.split(feats, train.labels)
 
-    clf.compile(loss = 'categorical_crossentropy', optimizer = 'adam',
-                metrics = ['accuracy'])
+    ## List of labels
+    lbls = ['Achievement', 'Address', 'Appeal', 'Confrontation', 'Endorsement',
+            'Generic', 'Regards', 'Update']
 
-    x_train = feats[:5588]
-    y_train = labels[:5588]
-    x_test = feats[5588:]
-    y_test = train.labels[5588:]
+    ## F1-scores from cross-validation
+    cvF1 = []
 
-    history = clf.fit(x_train.todense(), y_train, nb_epoch = 5,
-                      batch_size = 32, verbose = 1, validation_split = 0.1)
+    ## Confusion matricies from cross-validation
+    cvCM = []
 
-    y_pred_dist = clf.predict(x_test.todense(), batch_size = 32, verbose = 1)
+    ## Label-level results from cross-validation
+    cvLblRes = []
 
-    y_pred = []
+    ## Counter for fold iterations
+    fold = 1
 
-    for i in range(y_pred_dist.shape[0]):
-        y_pred.append(lb.classes_[np.argmax(y_pred_dist[i])])
+    for trainIndices, testIndices in folds:
+        ## Multi-layer perceptron classifier
+        clf = Sequential()
 
-    y_pred = np.array(y_pred)
-    print '\n', confusion_matrix(y_test, y_pred)
+        clf.add(Dense(512, input_shape = (feats.shape[1],)))
+        clf.add(Activation('relu'))
+        clf.add(Dropout(0.5))
+        clf.add(Dense(labels.shape[1]))
+        clf.add(Activation('softmax'))
+
+        clf.compile(loss = 'categorical_crossentropy', optimizer = 'adam',
+                    metrics = ['accuracy'])
+
+        clf.fit(feats[trainIndices].todense(), labels[trainIndices],
+                nb_epoch = 5, batch_size = 32, verbose = 1,
+                validation_split = 0.1)
+
+        ## True labels
+        trueLabels = train.labels[testIndices]
+
+        ## Prediction distribution
+        predDist = clf.predict(feats[testIndices].todense(), batch_size = 32,
+                               verbose = 1)
+
+        ## Predicted labels
+        predLabels = []
+
+        for i in range(predDist.shape[0]):
+            predLabels.append(lb.classes_[np.argmax(predDist[i])])
+
+        predLabels = np.array(predLabels)
+
+        cvF1.append(f1_score(trueLabels, predLabels, average = 'micro'))
+        cvCM.append(confusion_matrix(trueLabels, predLabels, labels = lbls))
+
+        cvLblRes.append(np.transpose(np.array(prfs(trueLabels, predLabels,
+                                                   labels = lbls))))
+
+        print 'Fold', fold, 'of', N_FOLDS, 'complete'
+        fold += 1
+
+    cvF1 = np.array(cvF1)
+    print cvF1
+    print 'mean: ', np.mean(cvF1)
+    print 'min: ', np.min(cvF1)
+    print 'median: ', np.median(cvF1)
+    print 'max: ', np.max(cvF1)
+    print 'mean confusion matrix'
+    print np.mean(np.array(cvCM), axis = 0)
+    print 'mean label-level statistics'
+    print np.mean(np.array(cvLblRes), axis = 0)
+
+    for cm in cvCM:
+        print cm
 
     return
 
