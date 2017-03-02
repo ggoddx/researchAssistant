@@ -12,12 +12,34 @@ def main():
     nonASCII = csv.reader(open('./Discrepancy Analysis/engTweetNonASCII.csv',
                                'rU'))
 
-    ## non-ASCII file column names
+    ## Non-ASCII file column names
     nAcolNames = nonASCII.next()
 
     nonASCII = np.array(list(nonASCII))
     nonASCII = nonASCII[np.where(nonASCII[:,
                 nAcolNames.index('non-ASCIIlen')] != '0')]
+
+    ## Non-English tweets labeled as English
+    nonEngFile = open('./Discrepancy Analysis/nonEnglishTweets.txt', 'rU')
+
+    ## List of non-English tweets
+    nonEng = []
+
+    for line in nonEngFile:
+        nonEng.append(line.strip())
+
+    del nonEngFile
+
+    ## Temporary list for non-ASCII tweets to remove non-English tweets
+    nonASCIItemp = []
+
+    for line in nonASCII:
+        if line[nAcolNames.index('OrigIndex')] not in nonEng:
+            nonASCIItemp.append(line)
+
+    nonASCII = np.array(nonASCIItemp)
+
+    del nonASCIItemp
 
     ## Fixed text
     fixed = {}
@@ -28,39 +50,41 @@ def main():
 
         tweet = tweet.decode(chardet.detect(tweet)['encoding'])
         tweet = ftfy.fix_text(tweet)
-        tweet = tweet.replace(u'\xe2\x80\u015a', '...')
-        tweet = tweet.replace(u'\xe2\x80\x98', "'")
-        tweet = tweet.replace(u'\u0111\x9f\x98\x81', u'\U0001F601')
-        tweet = tweet.replace(u'\u0111\x9f\x98\x8a', u'\U0001F60A')
-        tweet = tweet.replace(u'\u0111\x9f\x98\x8d', u'\U0001F60D')
-        tweet = tweet.replace(u'\u0111\x9f\x91\x8c', u'\U0001F44C')
-        tweet = tweet.replace(u'\xe2\x80\x93', '-')
-        tweet = tweet.replace(u'\x82', '')
-        tweet = tweet.replace(u'\u0102\x9f', u'\u00DF')
-        tweet = tweet.replace(u'\u0102\xa4', u'\u00E4')
-        tweet = tweet.replace(u'\u0102\xc2\xa0', '')
-        tweet = tweet.replace(u'\u0102\u0141', u'\u00E3')
-        tweet = tweet.replace(u'\u0102\u02d8\xe2\u0179\u0139\x93', '"')
-        tweet = tweet.replace(u'\u0102\u02d8\xe2\u0179\xc2\u015a', '...')
+        tweet = tweet.replace(u'\xe2\x80\u015a', '...')  #fixes 322 tweets
+        tweet = tweet.replace(u'\u2026', '...')  #fixes 181 tweets
+        tweet = tweet.replace(u'\u2013', '-')  #fixes 20 tweets
+        tweet = tweet.replace(u'\u2014', '-')  #fixes 13 tweets
+        tweet = tweet.replace(u'\u0111\x9f\x98\x8a', u'\U0001F60A')  #fixes 2
+        tweet = tweet.replace(u'\u0102\x82\xc2\xa0', '')  #fixes 2 tweets
+        tweet = tweet.replace(u'\xa0', ' ')  #fixes 28 tweets
+        tweet = tweet.replace(u'\u0102\x82', '')  #fixes 13 tweets
+        tweet = tweet.replace(u'\u0111\x9f\x91\x8c', u'\U0001F44C')  #fixes 1
+        tweet = tweet.replace(u'\u0111\x9f\x98\x81', u'\U0001F601')  #fixes 1
+        tweet = tweet.replace(u'\u0111\x9f\x98\x8d', u'\U0001F60D')  #fixes 1
+        tweet = tweet.replace(u'\u02d8\xe2\x82\u0179\xc2\u015a', '...')  #fix 1
+        tweet = tweet.replace(u'\xc2', '')  #fixes 9 tweets
+        tweet = tweet.replace(u'\u0102\xa4', u'\u00E4')  ## fixes 1 tweet
+        tweet = tweet.replace(u'\u0111\x9f\x92\x98', u'\U0001F498')  ## fixes 1
+        tweet = tweet.replace(u'\u0111\x9f\x98\x98', u'\U0001F618')  ## fixes 1
+        tweet = tweet.replace(u'\u2015', '-')  #fixes 1 tweet
+        tweet = tweet.replace(u'\u0102\u0141', u'\u00E3')  #fixes 1 tweet
+        tweet = tweet.replace(u'\u0102\u02d8\xe2\x82\u0179\u0139\x93', '"')  #1
+        tweet = tweet.replace(u'\u0102\u017a', u'\u00FC')  #fixes 1 tweet
+        tweet = tweet.replace(u'\u0102', '')  #fixes 1 tweet
+        tweet = tweet.replace(u'\xe2\x80\x94', '-')  #fixes 1 tweet
+        tweet = tweet.replace(u'\xe2\x80\x98', "'")  #fixes 1 tweet
+        tweet = tweet.replace(u'\xe2\x80\x93', '-')  #fixes 1 tweet
 
-#        if float(line[nAcolNames.index('%non-ASCII')]) < 0.3:
         fixed[line[nAcolNames.index('OrigIndex')]] = tweet
-
-#        if re.search('\x82', tweet) != None:
-#            print [tweet]
-
-#    print fixed
-#    print [fixed['6275']]
-#    print fixed['6275']
 
     c = 0
     for i in fixed:
-        if fixed[i].find(u'\u0102') >= 0:
+        nonASCIIchars = re.sub('[ -~]', '', fixed[i])
+        if nonASCIIchars != '' and nonASCIIchars != '\n':
+#        if fixed[i].find(u'\xe2\x80\x93') >= 0:
             print i, fixed[i]
             print [fixed[i]]
             c += 1
-#            print fixed[i].replace(u'\xe2\x80\u015a','...')
-#    print fixed['6234'].find(u'\xe2\x80\u015a')
 
     print c
 
