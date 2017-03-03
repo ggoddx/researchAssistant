@@ -77,18 +77,8 @@ def main():
 
         fixed[line[nAcolNames.index('OrigIndex')]] = tweet
 
-    c = 0
-    for i in fixed:
-        nonASCIIchars = re.sub('[ -~]', '', fixed[i])
-        if nonASCIIchars != '' and nonASCIIchars != '\n':
-#        if fixed[i].find(u'\xe2\x80\x93') >= 0:
-            print i, fixed[i]
-            print [fixed[i]]
-            c += 1
-
-    print c
-
-    return
+    del nonASCII
+    del nAcolNames
 
     ## Open CSV file
     dataCSV = csv.reader(open(fName, 'rU'))
@@ -96,28 +86,63 @@ def main():
     ## Table column names
     colNames = dataCSV.next()
 
-    dataCSV = np.array(list(dataCSV))
+    ## Training indicies for remaining unresolved tweets
+    trainIs = np.array(list(csv.reader(
+        open('./Unresolved Data/trainIndicies_for20170301.csv',
+             'rU')))).reshape((735,))
 
-    line = dataCSV[3]
+    ## Test indicies for remaining unresolved tweets
+    testIs = np.array(list(csv.reader(
+                open('./Unresolved Data/testIndicies_for20170301.csv',
+                     'rU')))).reshape((82,))
 
-    ## Tweet
-    tweet = line[colNames.index(twCol)]
+    ## Training data from unresolved tweets
+    train = []
 
-    print tweet
-    tweet = tweet.decode(chardet.detect(tweet)['encoding'])
-    tweet = ftfy.fix_text(tweet)
-    print tweet
+    ## Test data from unresolved tweets
+    test = []
 
-    fixedCSV = csv.writer(open('fixed.csv', 'wb', buffering = 0))
-    fixedCSV.writerows([[tweet]])
-    '''for line in dataCSV:
-        ## Tweet
-        tweet = line[colNames.index(twCol)]
+    ## Counter
+    c = 1
 
-        tweet = tweet.decode(chardet.detect(tweet)['encoding'])
-#        print unicode(tweet)
-        print ftfy.fix_text(unicode(tweet))
-        break'''
+    for row in dataCSV:
+        ## Index from full dataset
+        i = str(c)
+
+        if i in trainIs:
+            row[colNames.index(twCol)] = fixed[i].encode('utf-8')
+            train.append([i] + row)
+
+        if i in testIs:
+            row[colNames.index(twCol)] = fixed[i].encode('utf-8')
+            test.append([i] + row)
+
+        c += 1
+
+    del fixed
+    del dataCSV
+    del colNames
+    del trainIs
+    del testIs
+
+    ## Open train data file
+    trainCSV = list(csv.reader(
+            open('./Classification Data/trainData_20161228.csv', 'rU')))
+
+    ## Open test data file
+    testCSV = list(csv.reader(
+            open('./Classification Data/testData_20161228.csv', 'rU')))
+
+    ## File to write new train data
+    newTrain = csv.writer(open('./Classification Data/trainData_20170303.csv',
+                               'wb', buffering = 0))
+
+    ## File to write new test data
+    newTest = csv.writer(open('./Classification Data/testData_20170303.csv',
+                              'wb', buffering = 0))
+
+    newTrain.writerows(trainCSV + train)
+    newTest.writerows(testCSV + test)
 
     return
 
