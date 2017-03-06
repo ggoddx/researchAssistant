@@ -14,35 +14,33 @@ class ClfData:
         [fName, obsCol, lblCol] = fileSpecs
 
         ## Open classification data CSV file
-        data = list(csv.reader(open(fName, 'rU')))
+        data = csv.reader(open(fName, 'rU'))
 
         ## Column names from classification data table
-        colNames = data[0]
-
-        data = np.array(data[1:])
-
-        ## Tweet text before removing html entities
-        tweetTxtTemp = data[:, colNames.index(obsCol)]
-
-        ## Range of tweet text indicies
-        twTxtRange = range(tweetTxtTemp.shape[0])
+        colNames = data.next()
 
         ## Tweet text
-        self.tweetTxt = []
-
-        for tweet in tweetTxtTemp:
-            ## Tweet cleaned of HTML entities
-            cleanTweet = tweet.replace('&amp;', '&')
-
-            cleanTweet = cleanTweet.replace('&gt;', '>')
-            self.tweetTxt.append(cleanTweet)
-
-        self.tweetTxt = np.array(self.tweetTxt)
-
-        del tweetTxtTemp
+        tweetTxt = []
 
         ## Classification labels
-        self.labels = data[:, colNames.index(lblCol)]
+        labels = []
+
+        for row in data:
+            ## Tweet cleaned of HTML entities
+            tweet = row[colNames.index(obsCol)].replace('&amp;', '&')
+
+            tweet = tweet.replace('&gt;', '>')
+            tweetTxt.append(tweet)
+
+            ## Label for row
+            label = row[colNames.index(lblCol)]
+
+            labels.append(label)
+
+        self.tweetTxt = np.array(tweetTxt)
+        self.labels = np.array(labels)
+
+        return
 
     ## Randomizes classification data (for cases like cross-validation)
     def randomize(self):
@@ -57,3 +55,5 @@ class ClfData:
 
         self.tweetTxt = self.tweetTxt[permu]
         self.labels = self.labels[permu]
+
+        return
