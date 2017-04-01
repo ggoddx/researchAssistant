@@ -17,11 +17,11 @@ def main():
     ## Table column names
     colNames = source.next()
 
-    ## Cumulative counts of themes / message types over time
-    themeCts = {}
-
     ## Names of binaries/composites
     binaries = []
+
+    ## Cumulative counts of themes / message types over time
+    themeCts = {('ALL', 'ALL'): [0]}
 
     for name in colNames:
         ## Lowercased column name
@@ -133,19 +133,25 @@ def main():
                 if st == theme:
                     subThemeCts[-1] += 1
 
+        ## Count of tweets over time
+        tweetCts = themeCts[('ALL', 'ALL')]
+
         if newDT:
             zeroes.append(0)
+            tweetCts.append(tweetCts[-1])
 
-    print themeCts
-#    print len(dates)
-#    for bin in binaries:
-#        print bin, len(themeCts[('binary/composite', bin)])
-#    for mt in msgTypes:
-#        print mt, len(themeCts[('message type', mt)])
-#    for st in subThemes:
-#        print themeCts[('sub-theme', st)]
-#        print st, len(themeCts[('sub-theme', st)])
-#        break
+        tweetCts[-1] += 1
+
+    ## Timeline list for CSV file
+    timeline = [['Type', 'Name'] + dates]
+
+    for theme in themeCts:
+        timeline.append(list(theme) + themeCts[theme][1:])
+
+    ## To write timeline data
+    tlCSV = csv.writer(open('themeCountTimeline.csv', 'wb', buffering = 0))
+
+    tlCSV.writerows(timeline)
 
     return
 
