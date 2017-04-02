@@ -21,10 +21,13 @@ def main():
     binaries = []
 
     ## Cumulative counts of themes / message types over time
-    themeCts = {('ALL', 'ALL'): [0]}
+    themeDTcts = {('ALL', 'ALL'): [0]}
 
     ## Cumulative counts of themes / message types by month
     themeMoCts = {('ALL', 'ALL'): [0]}
+
+    ## Cumulative counts for various timeframes
+    themeCts = {'DT': themeDTcts, 'Mo': themeMoCts}
 
     for name in colNames:
         ## Lowercased column name
@@ -32,14 +35,18 @@ def main():
 
         if nameLC.find('binary') != -1:
             binaries.append(name)
-            themeCts[('binary/composite', name)] = [0]
-            themeMoCts[('binary/composite', name)] = [0]
+
+            for tf in themeCts:
+                themeCts[tf][('binary/composite', name)] = [0]
 
     ## Dates or tweets
     dates = []
 
     ## Month of tweets
     months = []
+
+    ## Dates and/or times of tweets for various timeframes
+    times = {'DT': dates, 'Mo': months}
 
     ## Names of message types
     msgTypes = []
@@ -51,11 +58,7 @@ def main():
     themeCols = (colNames.index('Theme 1'), colNames.index('Theme 2'),
                  colNames.index('Theme 3'), colNames.index('Theme 4'))
 
-    ## To pad lists with zeroes when theme / message type is yet to be present
-    zeroes = [0]
-
-    ## To pad monthly count lists
-    zeroesMo = [0]
+    zeroes = {'DT': [0], 'Mo': [0]}
 
     for row in source:
         ## Timestamp of tweet
@@ -80,34 +83,28 @@ def main():
         dt = dt.replace(hour = hr, minute = min, second = 0,
                         microsecond = 0).isoformat(' ')
 
-        ## For operations sensitive to whether a new date & time is in review
-        newDT = dt not in dates
+        ## Date and/or times of various timeframes
+        time = {'DT': dt, 'Mo': month}
 
-        ## For operations sensitive to whether a new month is being reviewed
-        newMo = month not in months
+        ## For operations sensitive to whether a new date/time is in review
+        new = {'DT': None, 'Mo': None}
 
-        if newDT:
-            dates.append(dt)
+        for tf in themeCts:
+            new[tf] = time[tf] not in times[tf]
 
-        if newMo:
-            months.append(month)
+            if new[tf]:
+                times[tf].append(time[tf])
 
         for binary in binaries:
-            ## List of counts for binary in theme / message type count dict
-            binCts = themeCts[('binary/composite', binary)]
+            for tf in themeCts:
+                ## List of counts for binary in theme / message type count dict
+                binCts = themeCts[tf][('binary/composite', binary)]
 
-            if newDT:
-                binCts.append(binCts[-1])  #tweet count for new date & time
+                if new[tf]:
+                    binCts.append(binCts[-1])  #tweet count for new timeframe
 
-            ## List of counts by month for binaries
-            binMoCts = themeMoCts[('binary/composite', binary)]
-
-            if newMo:
-                binMoCts.append(binMoCts[-1])
-
-            if int(row[colNames.index(binary)]) > 0:
-                binCts[-1] += 1
-                binMoCts[-1] += 1
+                if int(row[colNames.index(binary)]) > 0:
+                    binCts[-1] += 1
 
         ## Message Type being reviewed
         msgType = row[colNames.index('Message Type')].strip().lower().title()
@@ -117,28 +114,20 @@ def main():
 
         msgType = ('message type', msgType)
 
-        if msgType not in themeCts:
-            themeCts[msgType] = list(zeroes)
-
-        if msgType not in themeMoCts:
-            themeMoCts[msgType] = list(zeroesMo)
+        for tf in themeCts:
+            if msgType not in themeCts[tf]:
+                themeCts[tf][msgType] = list(zeroes[tf])
 
         for mt in msgTypes:
-            ## List of message type counts in theme / message type count dict
-            msgTypeCts = themeCts[('message type', mt)]
+            for tf in themeCts:
+                ## Message type counts' list in theme / message type count dict
+                msgTypeCts = themeCts[tf][('message type', mt)]
 
-            if newDT:
-                msgTypeCts.append(msgTypeCts[-1])
+                if new[tf]:
+                    msgTypeCts.append(msgTypeCts[-1])
 
-            ## List of message type counts by month
-            msgTypeMoCts = themeMoCts[('message type', mt)]
-
-            if newMo:
-                msgTypeMoCts.append(msgTypeMoCts[-1])
-
-            if mt == msgType[1]:
-                msgTypeCts[-1] += 1
-                msgTypeMoCts[-1] += 1
+                if mt == msgType[1]:
+                    msgTypeCts[-1] += 1
 
         ## Sub-themes for row
         rowThemes = []
@@ -155,88 +144,75 @@ def main():
 
                 theme = ('sub-theme', theme)
 
-                if theme not in themeCts:
-                    themeCts[theme] = list(zeroes)
-
-                if theme not in themeMoCts:
-                    themeMoCts[theme] = list(zeroesMo)
+                for tf in themeCts:
+                    if theme not in themeCts[tf]:
+                        themeCts[tf][theme] = list(zeroes[tf])
 
         for st in subThemes:
-            ## List of sub-themes counts in theme / message type count dict
-            subThemeCts = themeCts[('sub-theme', st)]
+            for tf in themeCts:
+                ## Sub-theme counts' list in theme / message type count dict
+                subThemeCts = themeCts[tf][('sub-theme', st)]
 
-            if newDT:
-                subThemeCts.append(subThemeCts[-1])
+                if new[tf]:
+                    subThemeCts.append(subThemeCts[-1])
 
-            ## List of sub-themes counts by month
-            subThemeMoCts = themeMoCts[('sub-theme', st)]
+                for theme in rowThemes:
+                    if st == theme:
+                        subThemeCts[-1] += 1
 
-            if newMo:
-                subThemeMoCts.append(subThemeMoCts[-1])
+        for tf in themeCts:
+            ## Count of tweet over timeframe
+            tweetCts = themeCts[tf][('ALL', 'ALL')]
 
-            for theme in rowThemes:
-                if st == theme:
-                    subThemeCts[-1] += 1
-                    subThemeMoCts[-1] += 1
+            if new[tf]:
+                zeroes[tf].append(0)
+                tweetCts.append(tweetCts[-1])
 
-        ## Count of tweets over time
-        tweetCts = themeCts[('ALL', 'ALL')]
+            tweetCts[-1] += 1
 
-        ## Count of tweets by month
-        tweetMoCts = themeMoCts[('ALL', 'ALL')]
+    ## Filename for count timeline data at various timeframes
+    tlCtFname = {'DT': 'themeCountTimeline.csv', 'Mo': 'themeCountByMonth.csv'}
 
-        if newDT:
-            zeroes.append(0)
-            tweetCts.append(tweetCts[-1])
+    ## Filename for proportion timeline data at various timeframes
+    tlPrFname = {'DT': 'themePercentTimeline.csv',
+                 'Mo': 'themePercentByMonth.csv'}
 
-        if newMo:
-            zeroesMo.append(0)
-            tweetMoCts.append(tweetMoCts[-1])
+    for tf in themeCts:
+        ## Range for iterating through lists at each date/time
+        dateRange = range(1, len(times[tf]) + 1)
 
-        tweetCts[-1] += 1
-        tweetMoCts[-1] += 1
+        ## Count timeline list for CSV file
+        timelineCt = [['Type', 'Name'] + times[tf]]
 
-    print themeMoCts
-    for theme in themeMoCts:
-        print theme[1], len(themeMoCts[theme])
-    print len(months)
-    print len(binaries), '+', len(msgTypes), '+', len(subThemes), '=', len(themeMoCts.keys())
-    return
+        ## Proportion timeline list for CSV file
+        timelinePr = list(timelineCt)
 
-    ## Range for iterating through lists at each date & time
-    dateRange = range(1, len(dates) + 1)
+        for theme in themeCts[tf]:
+            ## Count timeline list for specific theme / message type
+            themeCount = themeCts[tf][theme]
 
-    ## Count timeline list for CSV file
-    timelineCt = [['Type', 'Name'] + dates]
+            ## Theme tuple as list
+            themeList = list(theme)
 
-    ## Proportion timeline list for CSV file
-    timelinePr = list(timelineCt)
+            timelineCt.append(themeList + themeCount[1:])
 
-    for theme in themeCts:
-        ## Count timeline list for specific theme / message type
-        themeCount = themeCts[theme]
+            ## Proportion timeline for theme / message type
+            themePrs = []
 
-        ## Theme tuple as list
-        themeList = list(theme)
+            for i in dateRange:
+                themePrs.append(
+                    themeCount[i] / float(themeCts[tf][('ALL', 'ALL')][i]))
 
-        timelineCt.append(themeList + themeCount[1:])
+            timelinePr.append(themeList + themePrs)
 
-        ## Proportion timeline for theme / message type
-        themePrs = []
+        ## To write count timeline data
+        tlCtCSV = csv.writer(open(tlCtFname[tf], 'wb', buffering = 0))
 
-        for i in dateRange:
-            themePrs.append(themeCount[i] / float(themeCts[('ALL', 'ALL')][i]))
+        ## To write proportion timeline data
+        tlPrCSV = csv.writer(open(tlPrFname[tf], 'wb', buffering = 0))
 
-        timelinePr.append(themeList + themePrs)
-
-    ## To write count timeline data
-    tlCtCSV = csv.writer(open('themeCountTimeline.csv', 'wb', buffering = 0))
-
-    ## To write proportion timeline data
-    tlPrCSV = csv.writer(open('themePercentTimeline.csv', 'wb', buffering = 0))
-
-    tlCtCSV.writerows(timelineCt)
-    tlPrCSV.writerows(timelinePr)
+        tlCtCSV.writerows(timelineCt)
+        tlPrCSV.writerows(timelinePr)
 
     return
 
