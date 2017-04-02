@@ -8,7 +8,7 @@ def main():
     print 'Ensure DateRoot column is sorted in chronological order'
 
     ## Filepath of CSV source file
-    [source] = getSysArgs.usage(['themeCountTimeline.py',
+    [source] = getSysArgs.usage(['themeTimeline.py',
                                  '<source_CSV_filepath>'])[1:]
 
     ## Open source CSV file
@@ -142,16 +142,40 @@ def main():
 
         tweetCts[-1] += 1
 
-    ## Timeline list for CSV file
-    timeline = [['Type', 'Name'] + dates]
+    ## Range for iterating through lists at each date & time
+    dateRange = range(1, len(dates) + 1)
+
+    ## Count timeline list for CSV file
+    timelineCt = [['Type', 'Name'] + dates]
+
+    ## Proportion timeline list for CSV file
+    timelinePr = list(timelineCt)
 
     for theme in themeCts:
-        timeline.append(list(theme) + themeCts[theme][1:])
+        ## Count timeline list for specific theme / message type
+        themeCount = themeCts[theme]
 
-    ## To write timeline data
-    tlCSV = csv.writer(open('themeCountTimeline.csv', 'wb', buffering = 0))
+        ## Theme tuple as list
+        themeList = list(theme)
 
-    tlCSV.writerows(timeline)
+        timelineCt.append(themeList + themeCount[1:])
+
+        ## Proportion timeline for theme / message type
+        themePrs = []
+
+        for i in dateRange:
+            themePrs.append(themeCount[i] / float(themeCts[('ALL', 'ALL')][i]))
+
+        timelinePr.append(themeList + themePrs)
+
+    ## To write count timeline data
+    tlCtCSV = csv.writer(open('themeCountTimeline.csv', 'wb', buffering = 0))
+
+    ## To write proportion timeline data
+    tlPrCSV = csv.writer(open('themePercentTimeline.csv', 'wb', buffering = 0))
+
+    tlCtCSV.writerows(timelineCt)
+    tlPrCSV.writerows(timelinePr)
 
     return
 
