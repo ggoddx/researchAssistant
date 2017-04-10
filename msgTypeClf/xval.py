@@ -7,9 +7,8 @@ from sklearn.linear_model import (PassiveAggressiveClassifier, Perceptron,
 from sklearn.naive_bayes import BernoulliNB, MultinomialNB
 from sklearn.neighbors import KNeighborsClassifier, NearestCentroid
 
-import csv, getSysArgs
+import csv, getSysArgs, results
 import numpy as np
-import results
 
 
 def main():
@@ -25,8 +24,9 @@ def main():
     train.randomize()
 
     ## Text vectorizer
-#    txt2vect = CountVectorizer(binary = True, max_df = 0.99, min_df = 0.01)
-    txt2vect = TfidfVectorizer()#max_df = 0.99, min_df = 0.01)
+#    txt2vect = CountVectorizer(binary = True, ngram_range = (1, 2),
+#                               max_df = 0.45)#, min_df = 0.01)
+    txt2vect = TfidfVectorizer(max_df = 0.5, min_df = 2)
 
     ## Training features
     feats = txt2vect.fit_transform(train.tweetTxt)
@@ -64,7 +64,13 @@ def main():
                                   'Generic': 1, 'Regards': 1, 'Update': 1},
                   kernel = 'linear')
 
-    results.printCV(N_FOLDS, feats, train.labels, clf)
+    ## Print cross-validation results and obtain predictions
+    predictions = results.printCV(N_FOLDS, feats, train, clf)
+
+    ## To write predictions to CSV
+    predCSV = csv.writer(open('predictions.csv', 'wb', buffering = 0))
+
+    predCSV.writerows(predictions)
 
     return
 
