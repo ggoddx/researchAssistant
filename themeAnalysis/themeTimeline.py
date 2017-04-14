@@ -3,6 +3,7 @@ from dateutil.parser import parse
 
 import csv, getSysArgs
 
+
 ## Adds zeroes to the counts of themes that appear later in time in dataset
 #
 #  @param theme tuple
@@ -320,6 +321,13 @@ def main():
             ## Counts for various themes
             tc = tlCts[type][tf]
 
+            ## Test for whether timeframe is month
+            moTest = tf == 'Mo'
+
+            if moTest:
+                ## Ratio growth timeline list for CSV file
+                timelineGrowth = [tc[0]]
+
             ## Ratio timeline list for CSV file
             timelineRatio = [tc[0]]
 
@@ -327,6 +335,13 @@ def main():
             themeRng = range(1, len(tc))
 
             for i in themeRng:
+                if moTest:
+                    ## Ratio growth timeline for theme / message type
+                    themeGrowth = tc[i][:2]
+
+                    ## Previous ratio for growth calculations
+                    prevRatio = 0.0
+
                 ## Ratio timeline for theme / message type
                 themeRatio = tc[i][:2]
 
@@ -334,7 +349,7 @@ def main():
                 ctRng = range(2, len(tc[i]))
 
                 for j in ctRng:
-                    ## Ratio for one theme / message type for one time
+                    ## Ratio for one theme / message type at one time
                     ratio = float(tlCts['Tw'][tf][i][j])
 
                     if ratio != 0.0:
@@ -342,13 +357,33 @@ def main():
 
                     themeRatio.append(ratio)
 
+                    if moTest:
+                        ## Growth rate for one theme / message type at one time
+                        growth = prevRatio
+
+                        if growth != 0.0:
+                            growth = (ratio - prevRatio) / prevRatio
+
+                        themeGrowth.append(growth)
+                        prevRatio = ratio
+
                 timelineRatio.append(themeRatio)
+
+                if moTest:
+                    timelineGrowth.append(themeGrowth)
 
             ## To write ratio timeline data
             tlRatioCSV = csv.writer(open(tlRatioFnames[type][tf], 'wb',
                                          buffering = 0))
 
             tlRatioCSV.writerows(timelineRatio)
+
+            if moTest:
+                ## To write ratio growth timeline data
+                tlGrowthCSV = csv.writer(open(ratioGrowthFnames[type],
+                                              'wb', buffering = 0))
+
+                tlGrowthCSV.writerows(timelineGrowth)
 
     return
 
