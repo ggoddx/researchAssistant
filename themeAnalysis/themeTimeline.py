@@ -3,6 +3,75 @@ from dateutil.parser import parse
 
 import csv, getSysArgs
 
+## Adds zeroes to the counts of themes that appear later in time in dataset
+#
+#  @param theme tuple
+#   theme-type, theme-name pair that identifies theme / message type
+#
+#  @param themeCts dict
+#   stores various counts for various timeframes
+#
+#  @param zeroes dict
+#   lists of zeroes for various figures/timeframes to start cumulative counts
+def addZeroes(theme, themeCts, zeroes):
+    for type in themeCts:
+        for tf in themeCts[type]:
+            ## Theme counts for various themes for given timeframe
+            tc = themeCts[type][tf]
+
+            if theme not in tc:
+                tc[theme] = list(zeroes[type][tf])
+
+    return
+
+## For gathering counts associated with a tweet (e.g. favorites or retweets)
+#
+#  @param index int
+#   the column index of the count to be gathered
+#
+#  @param row list
+#   row for tweet from source data
+#
+#  @return count as integer
+def getCount(index, row):
+    ## Count from tweet
+    ct = row[index]
+
+    if ct == '':
+        ct = 0
+
+    return int(ct)
+
+## Calculates updated counts for latest timeframe
+#
+#  @param ct dict
+#   the amount to update the count depending on what type of figure is updated
+#
+#  @param new dict
+#   whether latest timeframe is a new time
+#
+#  @param test bool
+#   whether theme is present for the tweet
+#
+#  @param theme tuple
+#   theme-type, theme-name pair that identifies theme / message type
+#
+#  @param themeCts dict
+#   stores various counts for various timeframes
+def updateCounts(ct, new, test, theme, themeCts):
+    for type in themeCts:
+        for tf in themeCts[type]:
+            ## Cumulative count of theme / message type over time
+            tc = themeCts[type][tf][theme]
+
+            if new[tf]:
+                tc.append(tc[-1])
+
+            if test:
+                tc[-1] += ct[type]
+
+    return
+
 
 def main():
     print 'Usage Note:'
@@ -111,41 +180,12 @@ def main():
             if new[tf]:
                 times[tf].append(time[tf])
 
-        ## Tweet's favorite count
-        favCt = row[favI]
-
-        if favCt == '':
-            favCt = 0
-
-        favCt = int(favCt)
-
-        ## Tweet's retweet count
-        rtCt = row[rtI]
-
-        if rtCt == '':
-            rtCt = 0
-
-        rtCt = int(rtCt)
-
         ## Counts for all types
-        ct = {'Fav': favCt, 'RT': rtCt, 'Tw': 1}
+        ct = {'Fav': getCount(favI, row), 'RT': getCount(rtI, row), 'Tw': 1}
 
         for binary in binaries:
-            ## Test for whether binary/composite is attributed to tweet
-            binTest = int(row[colNames.index(binary)]) > 0
-
-            binary = ('binary/composite', binary)
-
-            for type in themeCts:
-                for tf in tFrames:
-                    ## List of counts for the binary/composite
-                    binCts = themeCts[type][tf][binary]
-
-                    if new[tf]:  #create count for new timeframe 
-                        binCts.append(binCts[-1])
-
-                    if binTest:
-                        binCts[-1] += ct[type]
+            updateCounts(ct, new, int(row[colNames.index(binary)]) > 0,
+                         ('binary/composite', binary), themeCts)
 
         ## Message Type being reviewed
         msgType = row[mtI].strip().lower().title()
@@ -153,32 +193,11 @@ def main():
         if msgType not in msgTypes:
             msgTypes.append(msgType)
 
-        msgType = ('message type', msgType)
-
-        for type in themeCts:
-            for tf in tFrames:
-                ## Theme count for given timeframe
-                tc = themeCts[type][tf]
-
-                if msgType not in tc:
-                    tc[msgType] = list(zeroes[type][tf])
+        addZeroes(('message type', msgType), themeCts, zeroes)
 
         for mt in msgTypes:
-            ## Test for whether message type is attributed to tweet
-            mtTest = mt == msgType[1]
-
-            mt = ('message type', mt)
-
-            for type in themeCts:
-                for tf in tFrames:
-                    ## Message type counts over time
-                    mtCts = themeCts[type][tf][mt]
-
-                    if new[tf]:
-                        mtCts.append(mtCts[-1])
-
-                    if mtTest:
-                        mtCts[-1] += ct[type]
+            updateCounts(ct, new, mt == msgType, ('message type', mt),
+                         themeCts)
 
         ## Sub-themes for row
         rowThemes = []
@@ -193,15 +212,7 @@ def main():
                 if theme not in subThemes:
                     subThemes.append(theme)
 
-                theme = ('sub-theme', theme)
-
-                for type in themeCts:
-                    for tf in tFrames:
-                        ## Theme count for given timeframe
-                        tc = themeCts[type][tf]
-
-                        if theme not in tc:
-                            tc[theme] = list(zeroes[type][tf])
+                addZeroes(('sub-theme', theme), themeCts, zeroes)
 
         for st in subThemes:
             st = ('sub-theme', st)
