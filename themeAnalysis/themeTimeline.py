@@ -1,3 +1,4 @@
+from copy import deepcopy as dcp
 from dateutil.parser import parse
 
 import csv, getSysArgs
@@ -20,14 +21,14 @@ def main():
     ## Table column names
     colNames = source.next()
 
-    ## Cumulative counts for various timeframes
-    themeCts = {'DT': {('ALL', 'ALL'): [0]}, 'Mo': {('ALL', 'ALL'): [0]}}
+    ## Cumulative counts for all tweets
+    allCt = {('ALL', 'ALL'): [0]}
 
-    ## Cumulative favorite counts for various timeframes
-    themeFavCts = {'DT': {('ALL', 'ALL'): [0]}, 'Mo': {('ALL', 'ALL'): [0]}}
+    ## Timeframes for counts
+    tFrames = {'DT': dcp(allCt), 'Mo': dcp(allCt)}
 
-    ## Cumulative retweet counts for various timeframes
-    themeRTcts = {'DT': {('ALL', 'ALL'): [0]}, 'Mo': {('ALL', 'ALL'): [0]}}
+    ## Count types
+    themeCts = {'Fav': dcp(tFrames), 'RT': dcp(tFrames), 'Tw': dcp(tFrames)}
 
     for name in colNames:
         ## Lowercased column name
@@ -37,10 +38,9 @@ def main():
             binaries.append(name)
             name = ('binary/composite', name)
 
-            for tf in themeCts:
-                themeCts[tf][name] = [0]
-                themeRTcts[tf][name] = [0]
-                themeFavCts[tf][name] = [0]
+            for type in themeCts:
+                for tf in tFrames:
+                    themeCts[type][tf][name] = [0]
 
     ## Index of favorite count column
     favI = colNames.index('Favorite Count')
@@ -62,16 +62,19 @@ def main():
                  colNames.index('Theme 3'), colNames.index('Theme 4'))
 
     ## Dates and/or times of tweets for various timeframes
-    times = {'DT': [], 'Mo': []}
+    times = {}
+
+    for tf in tFrames:
+        times[tf] = []
 
     ## Pad counts with zeroes when theme / message type has not appeared yet
-    zeroes = {'DT': [0], 'Mo': [0]}
+    zeroes = {}
 
-    ## Zero pad for favorites
-    zeroesFav = {'DT': [0], 'Mo': [0]}
+    for type in themeCts:
+        zeroes[type] = {}
 
-    ## Zero pad for retweets
-    zeroesRT = {'DT': [0], 'Mo': [0]}
+        for tf in tFrames:
+            zeroes[type][tf] = [0]
 
     for row in source:
         ## Timestamp of tweet
@@ -97,12 +100,12 @@ def main():
                         microsecond = 0).isoformat(' ')
 
         ## For operations sensitive to whether a new date/time is in review
-        new = {'DT': None, 'Mo': None}
+        new = {}
 
         ## Date and/or times of various timeframes
         time = {'DT': dt, 'Mo': month}
 
-        for tf in themeCts:
+        for tf in tFrames:
             new[tf] = time[tf] not in times[tf]
 
             if new[tf]:
@@ -124,31 +127,25 @@ def main():
 
         rtCt = int(rtCt)
 
+        ## Counts for all types
+        ct = {'Fav': favCt, 'RT': rtCt, 'Tw': 1}
+
         for binary in binaries:
             ## Test for whether binary/composite is attributed to tweet
             binTest = int(row[colNames.index(binary)]) > 0
 
             binary = ('binary/composite', binary)
 
-            for tf in themeCts:
-                ## List of counts for binary in theme / message type count dict
-                binCts = themeCts[tf][binary]
+            for type in themeCts:
+                for tf in tFrames:
+                    ## List of counts for the binary/composite
+                    binCts = themeCts[type][tf][binary]
 
-                ## List of favorite counts for the binary/composite
-                binFavCts = themeFavCts[tf][binary]
+                    if new[tf]:  #create count for new timeframe 
+                        binCts.append(binCts[-1])
 
-                ## List of rewtweet counts for the binary/composite
-                binRTcts = themeRTcts[tf][binary]
-
-                if new[tf]:  #create count for new timeframe
-                    binCts.append(binCts[-1])
-                    binFavCts.append(binFavCts[-1])
-                    binRTcts.append(binRTcts[-1])
-
-                if binTest:
-                    binCts[-1] += 1
-                    binFavCts[-1] += favCt
-                    binRTcts[-1] += rtCt
+                    if binTest:
+                        binCts[-1] += ct[type]
 
         ## Message Type being reviewed
         msgType = row[mtI].strip().lower().title()
@@ -158,24 +155,13 @@ def main():
 
         msgType = ('message type', msgType)
 
-        for tf in themeCts:
-            ## Theme count for given timeframe
-            tc = themeCts[tf]
+        for type in themeCts:
+            for tf in tFrames:
+                ## Theme count for given timeframe
+                tc = themeCts[type][tf]
 
-            ## Favorite count for given timeframe
-            tFavCt = themeFavCts[tf]
-
-            ## Retweet count for given timeframe
-            tRTc = themeRTcts[tf]
-
-            if msgType not in tc:
-                tc[msgType] = list(zeroes[tf])
-
-            if msgType not in tFavCt:
-                tFavCt[msgType] = list(zeroesFav[tf])
-
-            if msgType not in tRTc:
-                tRTc[msgType] = list(zeroesRT[tf])
+                if msgType not in tc:
+                    tc[msgType] = list(zeroes[type][tf])
 
         for mt in msgTypes:
             ## Test for whether message type is attributed to tweet
@@ -183,25 +169,16 @@ def main():
 
             mt = ('message type', mt)
 
-            for tf in themeCts:
-                ## Message type counts' list in theme / message type count dict
-                msgTypeCts = themeCts[tf][mt]
+            for type in themeCts:
+                for tf in tFrames:
+                    ## Message type counts over time
+                    mtCts = themeCts[type][tf][mt]
 
-                ## Favorite count list for message type
-                msgTypeFavCts = themeFavCts[tf][mt]
+                    if new[tf]:
+                        mtCts.append(mtCts[-1])
 
-                ## Retweet count list for message type
-                msgTypeRTcts = themeRTcts[tf][mt]
-
-                if new[tf]:
-                    msgTypeCts.append(msgTypeCts[-1])
-                    msgTypeFavCts.append(msgTypeFavCts[-1])
-                    msgTypeRTcts.append(msgTypeRTcts[-1])
-
-                if mtTest:
-                    msgTypeCts[-1] += 1
-                    msgTypeFavCts[-1] += favCt
-                    msgTypeRTcts[-1] += rtCt
+                    if mtTest:
+                        mtCts[-1] += ct[type]
 
         ## Sub-themes for row
         rowThemes = []
@@ -218,140 +195,107 @@ def main():
 
                 theme = ('sub-theme', theme)
 
-                for tf in themeCts:
-                    ## Theme count for given timeframe
-                    tc = themeCts[tf]
+                for type in themeCts:
+                    for tf in tFrames:
+                        ## Theme count for given timeframe
+                        tc = themeCts[type][tf]
 
-                    ## Favorite count for given timeframe
-                    tFavCt = themeFavCts[tf]
-
-                    ## Retweet count for given timeframe
-                    tRTc = themeRTcts[tf]
-
-                    if theme not in tc:
-                        tc[theme] = list(zeroes[tf])
-
-                    if theme not in tFavCt:
-                        tFavCt[theme] = list(zeroesFav[tf])
-
-                    if theme not in tRTc:
-                        tRTc[theme] = list(zeroesRT[tf])
+                        if theme not in tc:
+                            tc[theme] = list(zeroes[type][tf])
 
         for st in subThemes:
             st = ('sub-theme', st)
 
-            for tf in themeCts:
-                ## Sub-theme counts' list in theme / message type count dict
-                subThemeCts = themeCts[tf][st]
+            for type in themeCts:
+                for tf in tFrames:
+                    ## Sub-theme counts over time
+                    stCts = themeCts[type][tf][st]
 
-                ## Favorite count list for sub-theme
-                subThemeFavCts = themeFavCts[tf][st]
+                    if new[tf]:
+                        stCts.append(stCts[-1])
 
-                ## Retweet count list for sub-theme
-                subThemeRTcts = themeRTcts[tf][st]
+                    for theme in rowThemes:
+                        if st[1] == theme:
+                            stCts[-1] += ct[type]
+
+        for type in themeCts:
+            for tf in tFrames:
+                ## Count of all tweets over time
+                twCts = themeCts[type][tf][('ALL', 'ALL')]
 
                 if new[tf]:
-                    subThemeCts.append(subThemeCts[-1])
-                    subThemeFavCts.append(subThemeFavCts[-1])
-                    subThemeRTcts.append(subThemeRTcts[-1])
+                    zeroes[type][tf].append(0)
+                    twCts.append(twCts[-1])
 
-                for theme in rowThemes:
-                    if st[1] == theme:
-                        subThemeCts[-1] += 1
-                        subThemeFavCts[-1] += favCt
-                        subThemeRTcts[-1] += rtCt
+                twCts[-1] += ct[type]
 
-        for tf in themeCts:
-            ## Count of tweet over timeframe
-            tweetCts = themeCts[tf][('ALL', 'ALL')]
+    ## Filenames for count timeline data
+    tlCtFnames = {'Fav': {'DT': 'allThemesTL_Favorites_Ct.csv',
+                          'Mo': 'allThemesMo_Favorites_Ct.csv'},
+                  'RT': {'DT': 'allThemesTL_Retweets_Ct.csv',
+                         'Mo': 'allThemesMo_Retweets_Ct.csv'},
+                  'Tw': {'DT': 'allThemesTL_Tweets_Ct.csv',
+                         'Mo': 'allThemesMo_Tweets_Ct.csv'}}
 
-            ## Favorite count over timeframe
-            tweetFavCts = themeFavCts[tf][('ALL', 'ALL')]
+    ## Filenames for proportion to total tweets data
+    tlPrFnames = {'Fav': {'DT': 'allThemesTL_Favorites_PctMix.csv',
+                          'Mo': 'allThemesMo_Favorites_PctMix.csv'},
+                  'RT': {'DT': 'allThemesTL_Retweets_PctMix.csv',
+                         'Mo': 'allThemesMo_Retweets_PctMix.csv'},
+                  'Tw': {'DT': 'allThemesTL_Tweets_PctMix.csv',
+                         'Mo': 'allThemesMo_Tweets_PctMix.csv'}}
 
-            ## Retweet count over timeframe
-            tweetRTcts = themeRTcts[tf][('ALL', 'ALL')]
+    ## Filenames for ratio to tweet count data
+    tlRatioFnames = {'Fav': {'DT': 'allThemesTL_Favs2Tweets_Ratio.csv',
+                             'Mo': 'allThemesMo_Favs2Tweets_Ratio.csv'},
+                     'RT': {'DT': 'allThemesTL_RTtoTweets_Ratio.csv',
+                            'Mo': 'allThemesMo_RTtoTweets_Ratio.csv'}}
 
-            if new[tf]:
-                zeroes[tf].append(0)
-                zeroesFav[tf].append(0)
-                zeroesRT[tf].append(0)
-                tweetCts.append(tweetCts[-1])
-                tweetFavCts.append(tweetFavCts[-1])
-                tweetRTcts.append(tweetRTcts[-1])
+    ## Filenames for monthly growth rates of ratios
+    ratioGrowthFnames = {'Fav': 'allThemesMo_Favs2Tweets_RatioGrowth.csv',
+                         'RT': 'allThemesMo_RTtoTweets_RatioGrowth.csv'}
 
-            tweetCts[-1] += 1
-            tweetFavCts[-1] += favCt
-            tweetRTcts[-1] += rtCt
+    for type in themeCts:
+        for tf in tFrames:
+            ## Range for iterating through lists at each date/time
+            dateRange = range(1, len(times[tf]) + 1)
 
-    ## Filename for count timeline data at various timeframes
-    tlCtFname = {'DT': 'themeCountTimeline.csv', 'Mo': 'themeCountByMonth.csv'}
+            ## Count timeline list for CSV file
+            timelineCt = [['Type', 'Name'] + times[tf]]
 
-    ## Filename for proportion timeline data at various timeframes
-    tlPrFname = {'DT': 'themePercentTimeline.csv',
-                 'Mo': 'themePercentByMonth.csv'}
+            ## Proportion timeline list for CSV file
+            timelinePr = list(timelineCt)
 
-    ## Filename for favorite count timeline data at various timeframes
-    tlFavFname = {'DT': 'themeFavTimeline.csv', 'Mo': 'themeFavByMonth.csv'}
+            ## Counts of various themes / message types
+            tcLists = themeCts[type][tf]
 
-    ## Filename for retweet count timeline data at various timeframes
-    tlRTfname = {'DT': 'themeRTtimeline.csv', 'Mo': 'themeRTbyMonth.csv'}
+            for theme in tcLists:
+                ## Count timeline list for specific theme / message type
+                tc = tcLists[theme]
 
-    for tf in themeCts:
-        ## Range for iterating through lists at each date/time
-        dateRange = range(1, len(times[tf]) + 1)
+                ## Theme tuple as list
+                themeList = list(theme)
 
-        ## Count timeline list for CSV file
-        timelineCt = [['Type', 'Name'] + times[tf]]
+                timelineCt.append(themeList + tc[1:])
 
-        ## Proportion timeline list for CSV file
-        timelinePr = list(timelineCt)
+                ## Proportion timeline for theme / message type
+                themePrs = []
 
-        ## Favorite count timeline list for CSV file
-        timelineFav = list(timelineCt)
+                for i in dateRange:
+                    themePrs.append(tc[i] / float(tcLists[('ALL', 'ALL')][i]))
 
-        ## Retweet count timeline list for CSV file
-        timelineRT = list(timelineCt)
+                timelinePr.append(themeList + themePrs)
 
-        for theme in themeCts[tf]:
-            ## Count timeline list for specific theme / message type
-            themeCount = themeCts[tf][theme]
+            ## To write count timeline data
+            tlCtCSV = csv.writer(open(tlCtFnames[type][tf], 'wb',
+                                      buffering = 0))
 
-            ## Theme tuple as list
-            themeList = list(theme)
+            ## To write proportion timeline data
+            tlPrCSV = csv.writer(open(tlPrFnames[type][tf], 'wb',
+                                      buffering = 0))
 
-            timelineCt.append(themeList + themeCount[1:])
-
-            ## Proportion timeline for theme / message type
-            themePrs = []
-
-            for i in dateRange:
-                themePrs.append(
-                    themeCount[i] / float(themeCts[tf][('ALL', 'ALL')][i]))
-
-            timelinePr.append(themeList + themePrs)
-
-        for theme in themeFavCts[tf]:
-            timelineFav.append(list(theme) + themeFavCts[tf][theme][1:])
-
-        for theme in themeRTcts[tf]:
-            timelineRT.append(list(theme) + themeRTcts[tf][theme][1:])
-
-        ## To write count timeline data
-        tlCtCSV = csv.writer(open(tlCtFname[tf], 'wb', buffering = 0))
-
-        ## To write proportion timeline data
-        tlPrCSV = csv.writer(open(tlPrFname[tf], 'wb', buffering = 0))
-
-        ## To write favorite count timeline data
-        tlFavCSV = csv.writer(open(tlFavFname[tf], 'wb', buffering = 0))
-
-        ## To write retweet count timeline data
-        tlRTcsv = csv.writer(open(tlRTfname[tf], 'wb', buffering = 0))
-
-        tlCtCSV.writerows(timelineCt)
-        tlPrCSV.writerows(timelinePr)
-        tlFavCSV.writerows(timelineFav)
-        tlRTcsv.writerows(timelineRT)
+            tlCtCSV.writerows(timelineCt)
+            tlPrCSV.writerows(timelinePr)
 
     return
 
