@@ -266,7 +266,12 @@ def main():
     ratioGrowthFnames = {'Fav': 'allThemesMo_Favs2Tweets_RatioGrowth.csv',
                          'RT': 'allThemesMo_RTtoTweets_RatioGrowth.csv'}
 
+    ## Cumulative counts for various timeframes
+    tlCts = {}
+
     for type in themeCts:
+        tlCts[type] = {}
+
         for tf in tFrames:
             ## Range for iterating through lists at each date/time
             dateRange = range(1, len(times[tf]) + 1)
@@ -297,6 +302,8 @@ def main():
 
                 timelinePr.append(themeList + themePrs)
 
+            tlCts[type][tf] = timelineCt
+
             ## To write count timeline data
             tlCtCSV = csv.writer(open(tlCtFnames[type][tf], 'wb',
                                       buffering = 0))
@@ -307,6 +314,41 @@ def main():
 
             tlCtCSV.writerows(timelineCt)
             tlPrCSV.writerows(timelinePr)
+
+    for type in tlRatioFnames:
+        for tf in tFrames:
+            ## Counts for various themes
+            tc = tlCts[type][tf]
+
+            ## Ratio timeline list for CSV file
+            timelineRatio = [tc[0]]
+
+            ## Range for themes / message types
+            themeRng = range(1, len(tc))
+
+            for i in themeRng:
+                ## Ratio timeline for theme / message type
+                themeRatio = tc[i][:2]
+
+                ## Range for counts of theme / message type
+                ctRng = range(2, len(tc[i]))
+
+                for j in ctRng:
+                    ## Ratio for one theme / message type for one time
+                    ratio = float(tlCts['Tw'][tf][i][j])
+
+                    if ratio != 0.0:
+                        ratio = tc[i][j] / ratio
+
+                    themeRatio.append(ratio)
+
+                timelineRatio.append(themeRatio)
+
+            ## To write ratio timeline data
+            tlRatioCSV = csv.writer(open(tlRatioFnames[type][tf], 'wb',
+                                         buffering = 0))
+
+            tlRatioCSV.writerows(timelineRatio)
 
     return
 
