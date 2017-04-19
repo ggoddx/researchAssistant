@@ -146,7 +146,7 @@ def updateCounts(ct, cum, new, rowThemes, test, theme, themeCts):
                     tc[-1] += ct[type]
             else:
                 for st in rowThemes:
-                    if theme == st:
+                    if theme[1] == st:
                         tc[-1] += ct[type]
 
     return
@@ -168,31 +168,37 @@ def writeFiles(cum, themeCts, times):
     if cum:
         cTxt = 'Cum'
 
+    ## Timeline Folder
+    td = './TimelineCSVs/'
+
     ## Filenames for count timeline data
-    tlCtFnames = {'Fav': {'DT': 'TL_Favorites_' + cTxt + 'Ct.csv',
-                          'Mo': 'Mo_Favorites_' + cTxt + 'Ct.csv'},
-                  'RT': {'DT': 'TL_Retweets_' + cTxt + 'Ct.csv',
-                         'Mo': 'Mo_Retweets_' + cTxt + 'Ct.csv'},
-                  'Tw': {'DT': 'TL_Tweets_' + cTxt + 'Ct.csv',
-                         'Mo': 'Mo_Tweets_' + cTxt + 'Ct.csv'}}
+    tlCtFnames = {'Fav': {'DT': td + 'TL_Favorites_' + cTxt + 'Ct.csv',
+                          'Mo': td + 'Mo_Favorites_' + cTxt + 'Ct.csv'},
+                  'RT': {'DT': td + 'TL_Retweets_' + cTxt + 'Ct.csv',
+                         'Mo': td + 'Mo_Retweets_' + cTxt + 'Ct.csv'},
+                  'Tw': {'DT': td + 'TL_Tweets_' + cTxt + 'Ct.csv',
+                         'Mo': td + 'Mo_Tweets_' + cTxt + 'Ct.csv'}}
 
     ## Filenames for proportion to total tweets data
-    tlPrFnames = {'Fav': {'DT': 'TL_Favorites_' + cTxt + 'PctMix.csv',
-                          'Mo': 'Mo_Favorites_' + cTxt + 'PctMix.csv'},
-                  'RT': {'DT': 'TL_Retweets_' + cTxt + 'PctMix.csv',
-                         'Mo': 'Mo_Retweets_' + cTxt + 'PctMix.csv'},
-                  'Tw': {'DT': 'TL_Tweets_' + cTxt + 'PctMix.csv',
-                         'Mo': 'Mo_Tweets_' + cTxt + 'PctMix.csv'}}
+    tlPrFnames = {'Fav': {'DT': td + 'TL_Favorites_' + cTxt + 'PctMix.csv',
+                          'Mo': td + 'Mo_Favorites_' + cTxt + 'PctMix.csv'},
+                  'RT': {'DT': td + 'TL_Retweets_' + cTxt + 'PctMix.csv',
+                         'Mo': td + 'Mo_Retweets_' + cTxt + 'PctMix.csv'},
+                  'Tw': {'DT': td + 'TL_Tweets_' + cTxt + 'PctMix.csv',
+                         'Mo': td + 'Mo_Tweets_' + cTxt + 'PctMix.csv'}}
 
     ## Filenames for ratio to tweet count data
-    tlRatioFnames = {'Fav': {'DT': 'TL_Favs2Tweets_' + cTxt + 'Ratio.csv',
-                             'Mo': 'Mo_Favs2Tweets_' + cTxt + 'Ratio.csv'},
-                     'RT': {'DT': 'TL_RTtoTweets_' + cTxt + 'Ratio.csv',
-                            'Mo': 'Mo_RTtoTweets_' + cTxt + 'Ratio.csv'}}
+    tlRatioFnames = {'Fav': {'DT': td + 'TL_Favs2Tweets_' + cTxt + 'Ratio.csv',
+                             'Mo': (td + 'Mo_Favs2Tweets_' + cTxt
+                                    + 'Ratio.csv')},
+                     'RT': {'DT': td + 'TL_RTtoTweets_' + cTxt + 'Ratio.csv',
+                            'Mo': td + 'Mo_RTtoTweets_' + cTxt + 'Ratio.csv'}}
 
     ## Filenames for monthly growth rates of ratios
-    ratioGrowthFnames = {'Fav': 'Mo_Favs2Tweets_' + cTxt + 'RatioGrowth.csv',
-                         'RT': 'Mo_RTtoTweets_' + cTxt + 'RatioGrowth.csv'}
+    ratioGrowthFnames = {'Fav': (td + 'Mo_Favs2Tweets_' + cTxt
+                                 + 'RatioGrowth.csv'),
+                         'RT': (td + 'Mo_RTtoTweets_' + cTxt
+                                + 'RatioGrowth.csv')}
 
     ## Cumulative counts for various timeframes
     tlCts = {}
