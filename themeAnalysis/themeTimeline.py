@@ -43,13 +43,83 @@ def getCount(index, row):
 
     return int(ct)
 
+## Initializes count list for various themes at various timeframes
+#
+#  @param themeCts dict
+#   dictionary of count lists for various themes and timeframes
+#
+#  @param theme tuple
+#   theme count list to be initialized
+def initThemeCounts(themeCts, theme):
+    for type in themeCts:
+        for tf in themeCts[type]:
+            themeCts[type][tf][theme] = [0]
+
+    return
+
+## Initializes zeroes padding for various themes at various timeframes
+#
+#  @param themeCts dict
+#   dictionary of count lists for various themes and timeframes
+def initZeroes(themeCts):
+    ## Pad counts with zeroes when theme / message type has not appeared yet
+    zeroes = {}
+
+    for type in themeCts:
+        zeroes[type] = {}
+
+        for tf in themeCts[type]:
+            zeroes[type][tf] = [0]
+
+    return zeroes
+
+## Calculates updated counts for all tweets for latest timeframe
+#
+#  @param ct dict
+#   the amount to update the count depending on what type of figure is updated
+#
+#  @param cum bool
+#   whether count update is cumulative
+#
+#  @param new dict
+#   whether latest timeframe is a new time
+#
+#  @param themeCts dict
+#   stores various counts for various timeframes
+#
+#  @param zeroes dict
+#   lists of zeroes for various figures/timeframes to start cumulative counts
+def updateAllTweetsCount(ct, cum, new, themeCts, zeroes):
+    for type in themeCts:
+        for tf in themeCts[type]:
+            ## Count of all tweets over time
+            twCts = themeCts[type][tf][('ALL', 'ALL')]
+
+            if new[tf]:
+                zeroes[type][tf].append(0)
+
+                if cum:
+                    twCts.append(twCts[-1])
+                else:
+                    twCts.append(0)
+
+            twCts[-1] += ct[type]
+
+    return
+
 ## Calculates updated counts for latest timeframe
 #
 #  @param ct dict
 #   the amount to update the count depending on what type of figure is updated
 #
+#  @param cum bool
+#   whether count update is cumulative
+#
 #  @param new dict
 #   whether latest timeframe is a new time
+#
+#  @param rowThemes list
+#   list of theme-type, theme-name pairs that identify theme / message type
 #
 #  @param test bool
 #   whether theme is present for the tweet
@@ -59,213 +129,70 @@ def getCount(index, row):
 #
 #  @param themeCts dict
 #   stores various counts for various timeframes
-def updateCounts(ct, new, test, theme, themeCts):
+def updateCounts(ct, cum, new, rowThemes, test, theme, themeCts):
     for type in themeCts:
         for tf in themeCts[type]:
-            ## Cumulative count of theme / message type over time
+            ## Count of theme / message type over time
             tc = themeCts[type][tf][theme]
 
             if new[tf]:
-                tc.append(tc[-1])
+                if cum:
+                    tc.append(tc[-1])
+                else:
+                    tc.append(0)
 
-            if test:
-                tc[-1] += ct[type]
+            if len(rowThemes) == 1:
+                if test:
+                    tc[-1] += ct[type]
+            else:
+                for st in rowThemes:
+                    if theme == st:
+                        tc[-1] += ct[type]
 
     return
 
+## Writes various files for counts, percent mixes, and ratios
+#
+#  @param cum bool
+#   whether count update is cumulative
+#
+#  @param themeCts dict
+#   stores various counts for various timeframes
+#
+#  @param times dict
+#   dates and/or times of tweets for various timeframes
+def writeFiles(cum, themeCts, times):
+    ## Additon to filename for cumulative counts
+    cTxt = ''
 
-def main():
-    print 'Usage Note:'
-    print 'Ensure DateRoot column is sorted in chronological order'
-
-    ## Filepath of CSV source file
-    [source] = getSysArgs.usage(['themeTimeline.py',
-                                 '<source_CSV_filepath>'])[1:]
-
-    ## Open source CSV file
-    source = csv.reader(open(source, 'rU'))
-
-    ## Names of binaries/composites
-    binaries = []
-
-    ## Table column names
-    colNames = source.next()
-
-    ## Cumulative counts for all tweets
-    allCt = {('ALL', 'ALL'): [0]}
-
-    ## Timeframes for counts
-    tFrames = {'DT': dcp(allCt), 'Mo': dcp(allCt)}
-
-    ## Count types
-    themeCts = {'Fav': dcp(tFrames), 'RT': dcp(tFrames), 'Tw': dcp(tFrames)}
-
-    for name in colNames:
-        ## Lowercased column name
-        nameLC = name.strip().lower()
-
-        if nameLC.find('binary') != -1:
-            binaries.append(name)
-            name = ('binary/composite', name)
-
-            for type in themeCts:
-                for tf in tFrames:
-                    themeCts[type][tf][name] = [0]
-
-    ## Index of favorite count column
-    favI = colNames.index('Favorite Count')
-
-    ## Names of message types
-    msgTypes = []
-
-    ## Index of message type column
-    mtI = colNames.index('Message Type')
-
-    ## Index of retweet count column
-    rtI = colNames.index('Retweet Count')
-
-    ## Names of sub-themes
-    subThemes = []
-
-    ## Column indices for sub-themes
-    themeCols = (colNames.index('Theme 1'), colNames.index('Theme 2'),
-                 colNames.index('Theme 3'), colNames.index('Theme 4'))
-
-    ## Dates and/or times of tweets for various timeframes
-    times = {}
-
-    for tf in tFrames:
-        times[tf] = []
-
-    ## Pad counts with zeroes when theme / message type has not appeared yet
-    zeroes = {}
-
-    for type in themeCts:
-        zeroes[type] = {}
-
-        for tf in tFrames:
-            zeroes[type][tf] = [0]
-
-    for row in source:
-        ## Timestamp of tweet
-        dt = parse(row[colNames.index('DateRoot')])
-
-        ## To update if nearest minute is start of next hour
-        hr = dt.hour
-
-        ## To round timestamp to the nearest minute
-        min = dt.minute
-
-        if dt.second >= 30:
-            min += 1
-
-        if min == 60:
-            hr += 1
-            min = 0
-
-        ## Month of tweet
-        month = dt.date().replace(day = 1).isoformat()
-
-        dt = dt.replace(hour = hr, minute = min, second = 0,
-                        microsecond = 0).isoformat(' ')
-
-        ## For operations sensitive to whether a new date/time is in review
-        new = {}
-
-        ## Date and/or times of various timeframes
-        time = {'DT': dt, 'Mo': month}
-
-        for tf in tFrames:
-            new[tf] = time[tf] not in times[tf]
-
-            if new[tf]:
-                times[tf].append(time[tf])
-
-        ## Counts for all types
-        ct = {'Fav': getCount(favI, row), 'RT': getCount(rtI, row), 'Tw': 1}
-
-        for binary in binaries:
-            updateCounts(ct, new, int(row[colNames.index(binary)]) > 0,
-                         ('binary/composite', binary), themeCts)
-
-        ## Message Type being reviewed
-        msgType = row[mtI].strip().lower().title()
-
-        if msgType not in msgTypes:
-            msgTypes.append(msgType)
-
-        addZeroes(('message type', msgType), themeCts, zeroes)
-
-        for mt in msgTypes:
-            updateCounts(ct, new, mt == msgType, ('message type', mt),
-                         themeCts)
-
-        ## Sub-themes for row
-        rowThemes = []
-
-        for i in themeCols:
-            ## One sub-theme for tweet being reviewed
-            theme = row[i].strip().lower().title()
-
-            if theme != '' and theme not in rowThemes:
-                rowThemes.append(theme)
-
-                if theme not in subThemes:
-                    subThemes.append(theme)
-
-                addZeroes(('sub-theme', theme), themeCts, zeroes)
-
-        for st in subThemes:
-            st = ('sub-theme', st)
-
-            for type in themeCts:
-                for tf in tFrames:
-                    ## Sub-theme counts over time
-                    stCts = themeCts[type][tf][st]
-
-                    if new[tf]:
-                        stCts.append(stCts[-1])
-
-                    for theme in rowThemes:
-                        if st[1] == theme:
-                            stCts[-1] += ct[type]
-
-        for type in themeCts:
-            for tf in tFrames:
-                ## Count of all tweets over time
-                twCts = themeCts[type][tf][('ALL', 'ALL')]
-
-                if new[tf]:
-                    zeroes[type][tf].append(0)
-                    twCts.append(twCts[-1])
-
-                twCts[-1] += ct[type]
+    if cum:
+        cTxt = 'Cum'
 
     ## Filenames for count timeline data
-    tlCtFnames = {'Fav': {'DT': 'allThemesTL_Favorites_Ct.csv',
-                          'Mo': 'allThemesMo_Favorites_Ct.csv'},
-                  'RT': {'DT': 'allThemesTL_Retweets_Ct.csv',
-                         'Mo': 'allThemesMo_Retweets_Ct.csv'},
-                  'Tw': {'DT': 'allThemesTL_Tweets_Ct.csv',
-                         'Mo': 'allThemesMo_Tweets_Ct.csv'}}
+    tlCtFnames = {'Fav': {'DT': 'TL_Favorites_' + cTxt + 'Ct.csv',
+                          'Mo': 'Mo_Favorites_' + cTxt + 'Ct.csv'},
+                  'RT': {'DT': 'TL_Retweets_' + cTxt + 'Ct.csv',
+                         'Mo': 'Mo_Retweets_' + cTxt + 'Ct.csv'},
+                  'Tw': {'DT': 'TL_Tweets_' + cTxt + 'Ct.csv',
+                         'Mo': 'Mo_Tweets_' + cTxt + 'Ct.csv'}}
 
     ## Filenames for proportion to total tweets data
-    tlPrFnames = {'Fav': {'DT': 'allThemesTL_Favorites_PctMix.csv',
-                          'Mo': 'allThemesMo_Favorites_PctMix.csv'},
-                  'RT': {'DT': 'allThemesTL_Retweets_PctMix.csv',
-                         'Mo': 'allThemesMo_Retweets_PctMix.csv'},
-                  'Tw': {'DT': 'allThemesTL_Tweets_PctMix.csv',
-                         'Mo': 'allThemesMo_Tweets_PctMix.csv'}}
+    tlPrFnames = {'Fav': {'DT': 'TL_Favorites_' + cTxt + 'PctMix.csv',
+                          'Mo': 'Mo_Favorites_' + cTxt + 'PctMix.csv'},
+                  'RT': {'DT': 'TL_Retweets_' + cTxt + 'PctMix.csv',
+                         'Mo': 'Mo_Retweets_' + cTxt + 'PctMix.csv'},
+                  'Tw': {'DT': 'TL_Tweets_' + cTxt + 'PctMix.csv',
+                         'Mo': 'Mo_Tweets_' + cTxt + 'PctMix.csv'}}
 
     ## Filenames for ratio to tweet count data
-    tlRatioFnames = {'Fav': {'DT': 'allThemesTL_Favs2Tweets_Ratio.csv',
-                             'Mo': 'allThemesMo_Favs2Tweets_Ratio.csv'},
-                     'RT': {'DT': 'allThemesTL_RTtoTweets_Ratio.csv',
-                            'Mo': 'allThemesMo_RTtoTweets_Ratio.csv'}}
+    tlRatioFnames = {'Fav': {'DT': 'TL_Favs2Tweets_' + cTxt + 'Ratio.csv',
+                             'Mo': 'Mo_Favs2Tweets_' + cTxt + 'Ratio.csv'},
+                     'RT': {'DT': 'TL_RTtoTweets_' + cTxt + 'Ratio.csv',
+                            'Mo': 'Mo_RTtoTweets_' + cTxt + 'Ratio.csv'}}
 
     ## Filenames for monthly growth rates of ratios
-    ratioGrowthFnames = {'Fav': 'allThemesMo_Favs2Tweets_RatioGrowth.csv',
-                         'RT': 'allThemesMo_RTtoTweets_RatioGrowth.csv'}
+    ratioGrowthFnames = {'Fav': 'Mo_Favs2Tweets_' + cTxt + 'RatioGrowth.csv',
+                         'RT': 'Mo_RTtoTweets_' + cTxt + 'RatioGrowth.csv'}
 
     ## Cumulative counts for various timeframes
     tlCts = {}
@@ -273,7 +200,7 @@ def main():
     for type in themeCts:
         tlCts[type] = {}
 
-        for tf in tFrames:
+        for tf in themeCts[type]:
             ## Range for iterating through lists at each date/time
             dateRange = range(1, len(times[tf]) + 1)
 
@@ -299,7 +226,11 @@ def main():
                 themePrs = []
 
                 for i in dateRange:
-                    themePrs.append(tc[i] / float(tcLists[('ALL', 'ALL')][i]))
+                    if tc[i] == 0:
+                        themePrs.append(0)
+                    else:
+                        themePrs.append(
+                            tc[i] / float(tcLists[('ALL', 'ALL')][i]))
 
                 timelinePr.append(themeList + themePrs)
 
@@ -317,7 +248,7 @@ def main():
             tlPrCSV.writerows(timelinePr)
 
     for type in tlRatioFnames:
-        for tf in tFrames:
+        for tf in themeCts[type]:
             ## Counts for various themes
             tc = tlCts[type][tf]
 
@@ -384,6 +315,172 @@ def main():
                                               'wb', buffering = 0))
 
                 tlGrowthCSV.writerows(timelineGrowth)
+
+    return
+
+
+def main():
+    print 'Usage Note:'
+    print 'Ensure DateRoot column is sorted in chronological order'
+
+    ## Filepath of CSV source file
+    [source] = getSysArgs.usage(['themeTimeline.py',
+                                 '<source_CSV_filepath>'])[1:]
+
+    ## Open source CSV file
+    source = csv.reader(open(source, 'rU'))
+
+    ## Names of binaries/composites
+    binaries = []
+
+    ## Table column names
+    colNames = source.next()
+
+    ## Cumulative counts for all tweets
+    allCt = {('ALL', 'ALL'): [0]}
+
+    ## Timeframes for counts
+    tFrames = {'DT': dcp(allCt), 'Mo': dcp(allCt)}
+
+    ## Non-cumulative count types
+    themeCts = {'Fav': {'Mo': dcp(allCt)}, 'RT': {'Mo': dcp(allCt)},
+                'Tw': {'Mo': dcp(allCt)}}
+
+    ## Cumulative count types
+    themeCumCts = {'Fav': dcp(tFrames), 'RT': dcp(tFrames), 'Tw': dcp(tFrames)}
+
+    for name in colNames:
+        ## Lowercased column name
+        nameLC = name.strip().lower()
+
+        if nameLC.find('binary') != -1:
+            binaries.append(name)
+            name = ('binary/composite', name)
+            initThemeCounts(themeCts, name)
+            initThemeCounts(themeCumCts, name)
+
+    ## Index of favorite count column
+    favI = colNames.index('Favorite Count')
+
+    ## Names of message types
+    msgTypes = []
+
+    ## Index of message type column
+    mtI = colNames.index('Message Type')
+
+    ## Index of retweet count column
+    rtI = colNames.index('Retweet Count')
+
+    ## Names of sub-themes
+    subThemes = []
+
+    ## Column indices for sub-themes
+    themeCols = (colNames.index('Theme 1'), colNames.index('Theme 2'),
+                 colNames.index('Theme 3'), colNames.index('Theme 4'))
+
+    ## Dates and/or times of tweets for various timeframes
+    times = {}
+
+    for tf in tFrames:
+        times[tf] = []
+
+    ## Pad counts with zeroes when theme / message type has not appeared yet
+    zeroes = initZeroes(themeCts)
+
+    ## Pad cumulative counts with zeroes
+    zeroesCum = initZeroes(themeCumCts)
+
+    for row in source:
+        ## Timestamp of tweet
+        dt = parse(row[colNames.index('DateRoot')])
+
+        ## To update if nearest minute is start of next hour
+        hr = dt.hour
+
+        ## To round timestamp to the nearest minute
+        min = dt.minute
+
+        if dt.second >= 30:
+            min += 1
+
+        if min == 60:
+            hr += 1
+            min = 0
+
+        ## Month of tweet
+        month = dt.date().replace(day = 1).isoformat()
+
+        dt = dt.replace(hour = hr, minute = min, second = 0,
+                        microsecond = 0).isoformat(' ')
+
+        ## For operations sensitive to whether a new date/time is in review
+        new = {}
+
+        ## Date and/or times of various timeframes
+        time = {'DT': dt, 'Mo': month}
+
+        for tf in tFrames:
+            new[tf] = time[tf] not in times[tf]
+
+            if new[tf]:
+                times[tf].append(time[tf])
+
+        ## Counts for all types
+        ct = {'Fav': getCount(favI, row), 'RT': getCount(rtI, row), 'Tw': 1}
+
+        for binary in binaries:                    
+            ## Test whether binary should have counts updated
+            binTest = int(row[colNames.index(binary)]) > 0
+
+            binary = ('binary/composite', binary)
+            updateCounts(ct, False, new, [binary], binTest, binary, themeCts)
+            updateCounts(ct, True, new, [binary], binTest, binary, themeCumCts)
+
+        ## Message Type being reviewed
+        msgType = row[mtI].strip().lower().title()
+
+        if msgType not in msgTypes:
+            msgTypes.append(msgType)
+
+        msgType = ('message type', msgType)
+        addZeroes(msgType, themeCts, zeroes)
+        addZeroes(msgType, themeCumCts, zeroesCum)
+
+        for mt in msgTypes:
+            ## Test whether message type should have counts updated
+            mtTest = mt == msgType[1]
+
+            mt = ('message type', mt)
+            updateCounts(ct, False, new, [mt], mtTest, mt, themeCts)
+            updateCounts(ct, True, new, [mt], mtTest, mt, themeCumCts)
+
+        ## Sub-themes for row
+        rowThemes = []
+
+        for i in themeCols:
+            ## One sub-theme for tweet being reviewed
+            theme = row[i].strip().lower().title()
+
+            if theme != '' and theme not in rowThemes:
+                rowThemes.append(theme)
+
+                if theme not in subThemes:
+                    subThemes.append(theme)
+
+                theme = ('sub-theme', theme)
+                addZeroes(theme, themeCts, zeroes)
+                addZeroes(theme, themeCumCts, zeroesCum)
+
+        for st in subThemes:
+            st = ('sub-theme', st)
+            updateCounts(ct, False, new, rowThemes, None, st, themeCts)
+            updateCounts(ct, True, new, rowThemes, None, st, themeCumCts)
+
+        updateAllTweetsCount(ct, False, new, themeCts, zeroes)
+        updateAllTweetsCount(ct, True, new, themeCumCts, zeroesCum)
+
+    writeFiles(False, themeCts, times)
+    writeFiles(True, themeCumCts, times)
 
     return
 
