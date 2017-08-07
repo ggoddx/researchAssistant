@@ -488,6 +488,69 @@ def main():
     writeFiles(False, themeCts, times)
     writeFiles(True, themeCumCts, times)
 
+    ## Timeline Folder
+    td = './TimelineCSVs/'
+
+    ## Various measurements to compile to combined report
+    measures = {'Favorites': {'type': 'Favorite', 'ratio': False},
+                'Favs2Tweets': {'type': 'Favorite-to-Tweet', 'ratio': True},
+                'Retweets': {'type': 'Retweet', 'ratio': False},
+                'RTtoTweets': {'type': 'Retweet-to-Tweet', 'ratio': True},
+                'Tweets': {'type': 'Tweet', 'ratio': False}}
+
+    ## Cumulative distinction
+    cumID = ['', 'Cum']
+
+    ## Figure types
+    figures = {False: {'Ct': 'Count', 'PctMix': '% Mix'},
+               True: {'Ratio': 'Ratio', 'RatioGrowth': 'Ratio Growth'}}
+
+    ## To store table of data for combined report
+    combinedData = [['Measurement Type', 'Figure Type', 'Cumulative',
+                     'Category Type', 'Category Name', 'Month', 'Value']]
+
+    for mt in measures:
+        for cum in cumID:
+            for fig in figures[measures[mt]['ratio']]:
+                ## Open monthly measures file
+                moData = csv.reader(open(td + 'Mo_' + mt + '_' + cum + fig
+                                         + '.csv'))
+
+                ## Months of tweet data (assumes 1st 2 cols specify theme)
+                months = moData.next()[2:]
+
+                ## Measurement specifications
+                measureInfo = [mt, fig, None]
+
+                if cum == 'Cum':
+                    measureInfo[2] = True
+                else:
+                    measureInfo[2] = False
+
+                for theme in moData:
+                    ## Theme type and name
+                    themeName = theme[:2]
+
+                    theme = theme[2:]
+
+                    ## Range to iterate over months
+                    moRng = range(len(months))
+
+                    for i in moRng:
+                        ## Row for combined report
+                        combiRow = measureInfo + themeName
+
+                        combiRow.append(months[i])
+                        combiRow.append(theme[i])
+
+                        combinedData.append(combiRow)
+
+    ## To write combined report
+    combiDataCSV = csv.writer(open(td + 'Mo_CombinedData.csv', 'wb',
+                                   buffering = 0))
+
+    combiDataCSV.writerows(combinedData)
+
     return
 
 if __name__ == '__main__':
